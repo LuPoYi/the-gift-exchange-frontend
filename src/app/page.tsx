@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
-  defaultErc20InfoType,
-  defaultPoolStateType,
+  Erc20InfoType,
+  PoolStateType,
   erc20ABI,
   giftExchangeContractABI,
   giftExchangeContractAddress,
@@ -17,6 +17,7 @@ import {
   tokenCAddress,
   tokenDAddress,
 } from '../constants';
+import GiftCard from '@/components/GiftCard';
 import { formatUnits, parseUnits } from 'viem';
 import { readContracts, watchBlockNumber, writeContract } from '@wagmi/core';
 import { truncateString } from '@/utils';
@@ -29,9 +30,9 @@ export default function Home() {
   const { address } = useAccount()
 
   const [players, setPlayers] = useState<string[]>()
-  const [pools, setPools] = useState<defaultPoolStateType[]>()
+  const [pools, setPools] = useState<PoolStateType[]>()
   const [erc20InfoMap, setErc20InfoMap] =
-    useState<Record<string, defaultErc20InfoType>>()
+    useState<Record<string, Erc20InfoType>>()
 
   // Form Related State
   const [isLoading, setIsLoading] = useState(false)
@@ -133,7 +134,7 @@ export default function Home() {
           })
 
           let _players: string[] = []
-          let _pools: defaultPoolStateType[] = []
+          let _pools: PoolStateType[] = []
           for (let i = 0; i < 6; i += 2) {
             const playerAddress = contractResp[i].result?.toString() || ""
 
@@ -186,7 +187,7 @@ export default function Home() {
             ]),
           })
 
-          const _erc20InfoMap: Record<string, defaultErc20InfoType> = {}
+          const _erc20InfoMap: Record<string, Erc20InfoType> = {}
           for (const [i, tokenAdress] of supportedTokenAddresses.entries()) {
             const decimals = Number(contractResp[i * 3].result)
 
@@ -218,12 +219,10 @@ export default function Home() {
 
   const isEnoughBalance = Number(balance) >= Number(amount)
   const isSendDisable = !isEnoughAllowance || !isEnoughBalance
- 
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <h1 className="text-3xl text-blue-800 font-bold underline">
-        The Gift Exchange
-      </h1>
+    <main className="flex min-h-screen flex-col items-center justify-between p-6 md:p-24">
+      <h1 className="text-3xl text-blue-800 font-bold ">The Gift Exchange</h1>
       <div className="py-4">
         <ConnectButton />
       </div>
@@ -297,82 +296,33 @@ export default function Home() {
         <div key={symbol}>{`${symbol}: ${amount}`}</div>
       ))}
 
-      {players &&
-        players.map((player, i) => <div key={i}>{truncateString(player)}</div>)}
-
-      <div className="flex justify-between space-x-3 w-full">
-        {pools &&
-          [
-            { pool: pools[0], textColor: "text-blue-500", index: 0 },
-            { pool: pools[1], textColor: "text-gree-500", index: 1 },
-            { pool: pools[2], textColor: "text-red-500", index: 2 },
-          ].map(({ pool, textColor, index }) => {
-            const { tokenAddress, symbol, amount } = pool
-
-            return (
+      <div className="mx-auto max-w-4xl space-y-4">
+        <div>
+          <div className="text-4xl mb-3">Waiting List</div>
+          <div className="p-4 bg-blue-100 rounded-lg w-full">
+            {players?.map((player, i) => (
               <div
-                key={index}
-                className="max-w-sm rounded overflow-hidden shadow-lg w-1/3"
+                key={i}
+                className="w-10/12 text-ellipsis overflow-hidden whitespace-nowrap"
               >
-                <div className="px-6 py-4">
-                  <div className={`font-bold text-xl mb-2 ${textColor}`}>
-                    {symbol}
-                  </div>
-                  <p className="text-gray-700 text-base">
-                    {`${amount} ${symbol}`}
-                    <br />
-                    {`Token Address: ${
-                      tokenAddress && truncateString(tokenAddress)
-                    }`}
-                    <br />
-                  </p>
-                </div>
+                {/* {truncateString(player)} */}
+                {player}
               </div>
-            )
-          })}
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <div className="text-4xl mb-3">Prize Pools</div>
+          <div className="flex flex-wrap md:gap-6 gap-y-6">
+            {pools?.map((pool, index) => (
+              <div key={index} className="w-full md:w-64">
+                <GiftCard index={index} pool={pool} />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
-      <button className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
-        Put TokenA and Get TokenX
-      </button>
-      <button className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
-        Put TokenB and Get TokenX
-      </button>
-      <button className="bg-pink-500 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded">
-        Put TokenC and Get TokenX
-      </button>
-      <svg
-        className="gingerbread"
-        width="200"
-        height="200"
-        viewBox="-100 -100 200 200"
-      >
-        <circle className="body" cx="0" cy="-50" r="30" />
-
-        <circle className="eye" cx="-12" cy="-55" r="3" />
-        <circle className="eye" cx="12" cy="-55" r="3" />
-        <rect className="mouth" x="-10" y="-40" width="20" height="5" rx="2" />
-
-        <line className="limb" x1="-40" y1="-10" x2="40" y2="-10" />
-        <line className="limb" x1="-25" y1="50" x2="0" y2="-15" />
-        <line className=" limb" x1="25" y1="50" x2="0" y2="-15" />
-
-        <circle className="button" cx="0" cy="-10" r="5" />
-        <circle className="button" cx="0" cy="10" r="5" />
-      </svg>
-      <svg width="200" height="200" viewBox="-100 -100 200 200">
-        <circle cx="0" cy="20" r="70" fill="#D1495B" />
-
-        <circle
-          cx="0"
-          cy="-75"
-          r="12"
-          fill="none"
-          stroke="#F79257"
-          strokeWidth="2"
-        />
-
-        <rect x="-17.5" y="-65" width="35" height="20" fill="#F79257" />
-      </svg>
     </main>
   )
 }

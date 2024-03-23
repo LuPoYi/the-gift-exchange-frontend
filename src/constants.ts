@@ -1,4 +1,4 @@
-import giftExchangeJSON from "./contracts/gift-exchange-abi.json"
+import giftExchangeJSON from './contracts/gift-exchange-abi.json';
 
 export const defaultPoolState = {
   playerAddress: undefined,
@@ -8,7 +8,7 @@ export const defaultPoolState = {
   amount: undefined,
 }
 
-export type defaultPoolStateType = {
+export type PoolStateType = {
   tokenAddress: string | undefined
   decimals: number
   symbol: string | undefined
@@ -21,7 +21,7 @@ export const defaultErc20Info = {
   allowance: 0,
 }
 
-export type defaultErc20InfoType = {
+export type Erc20InfoType = {
   decimals: number
   symbol: string
   allowance: number

@@ -1,7 +1,6 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 "use client"
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
@@ -22,12 +21,14 @@ import { formatUnits, parseUnits } from 'viem';
 import { readContracts, watchBlockNumber, writeContract } from '@wagmi/core';
 import { truncateString } from '@/utils';
 import { useAccount, useBalance } from 'wagmi';
+import { useClientMediaQuery } from '@/hooks/useClientMediaQuery';
 import { wagmiConfig } from './providers';
 
 const amount = "1"
 
 export default function Home() {
   const { address } = useAccount()
+  const isMobile = useClientMediaQuery("(max-width: 600px)")
 
   const [players, setPlayers] = useState<string[]>()
   const [pools, setPools] = useState<PoolStateType[]>()
@@ -221,8 +222,8 @@ export default function Home() {
   const isSendDisable = !isEnoughAllowance || !isEnoughBalance
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-6 md:p-24">
-      <h1 className="text-3xl text-blue-800 font-bold ">The Gift Exchange</h1>
+    <main className="flex min-h-screen flex-col items-center justify-between p-6 md:p-18">
+      <h1 className="text-4xl font-bold">The Gift Exchange</h1>
       <div className="py-4">
         <ConnectButton />
       </div>
@@ -289,38 +290,35 @@ export default function Home() {
         </form>
       </div>
 
-      <div>{`${nativeToken?.symbol}: ${
-        nativeToken && formatUnits(nativeToken.value, nativeToken.decimals)
-      }`}</div>
-      {Object.values(accountBalances).map(({ symbol, amount }) => (
-        <div key={symbol}>{`${symbol}: ${amount}`}</div>
-      ))}
-
-      <div className="mx-auto max-w-4xl space-y-4">
+      {/* rize Pools & Waiting List */}
+      <div className="mx-auto max-w-4xl space-y-4 pt-4">
         <div>
-          <div className="text-4xl mb-3">Waiting List</div>
-          <div className="p-4 bg-blue-100 rounded-lg w-full">
-            {players?.map((player, i) => (
-              <div
-                key={i}
-                className="w-10/12 text-ellipsis overflow-hidden whitespace-nowrap"
-              >
-                {/* {truncateString(player)} */}
-                {player}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div>
-          <div className="text-4xl mb-3">Prize Pools</div>
-          <div className="flex flex-wrap md:gap-6 gap-y-6">
+          <div className="text-4xl mb-4">Prize Pools</div>
+          <div className="flex flex-wrap md:gap-4 gap-y-4">
             {pools?.map((pool, index) => (
               <div key={index} className="w-full md:w-64">
                 <GiftCard index={index} pool={pool} />
               </div>
             ))}
           </div>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <div className="text-4xl w-full">Waiting List</div>
+          <div className="p-4 bg-zinc-800 rounded-lg w-8/12">
+            {players?.map((player, i) => (
+              <div
+                key={i}
+                className="w-11/12 text-ellipsis overflow-hidden whitespace-nowrap"
+              >
+                {isMobile ? truncateString(player) : player}
+              </div>
+            ))}
+          </div>
+          {/* <div className="p-4 bg-zinc-800 rounded-lg flex-1">
+            {Object.values(accountBalances).map(({ symbol, amount }) => (
+              <div key={symbol}>{`${symbol}: ${amount}`}</div>
+            ))}
+          </div> */}
         </div>
       </div>
     </main>

@@ -7,7 +7,7 @@ const coverBackgrounds = [
   `#f5eed7 url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='47.5' height='47.5' viewBox='0 0 100 100'><path d='M 25 10 L 25 17 M 25 33 L 25 40 M 10 25 L 17 25 M 33 25 L 40 25' stroke='%23CD803D' stroke-width='6' stroke-linecap='round' /><circle cx='75' cy='75' r='4' fill='%23CD803D'/></svg>")`,
 ]
 
-const textColors = ["text-blue-500", "text-gree-500", "text-red-500"]
+const textColors = ["text-blue-500", "text-green-500", "text-red-500"]
 
 interface GiftCardProps {
   index: number
@@ -30,7 +30,7 @@ const GiftCard = ({ index = 0, pool }: GiftCardProps) => {
         {index + 1}
       </div>
 
-      <div className="px-4 py-4 bg-[#E0CEB9] rounded-lg items-center justify-center w-full h-full">
+      <div className="px-4 py-4 bg-white rounded-lg items-center justify-center w-full h-full">
         <div className={`font-bold text-xl mb-2 ${textColors[index]}`}>
           {symbol}
         </div>

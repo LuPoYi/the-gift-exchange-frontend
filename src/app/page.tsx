@@ -1,11 +1,12 @@
 "use client"
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react"
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from "@rainbow-me/rainbowkit"
 import {
   Erc20InfoType,
   PoolStateType,
+  amount,
   erc20ABI,
   giftExchangeContractABI,
   giftExchangeContractAddress,
@@ -15,20 +16,26 @@ import {
   tokenBAddress,
   tokenCAddress,
   tokenDAddress,
-} from '../constants';
-import GiftCard from '@/components/GiftCard';
-import { formatUnits, parseUnits } from 'viem';
-import { readContracts, watchBlockNumber, writeContract } from '@wagmi/core';
-import { truncateString } from '@/utils';
-import { useAccount, useBalance } from 'wagmi';
-import { useClientMediaQuery } from '@/hooks/useClientMediaQuery';
-import { wagmiConfig } from './providers';
-
-const amount = "1"
+} from "../constants"
+import GiftCard from "@/components/GiftCard"
+import { Notifications } from "@/components/Notifications"
+import { formatUnits, parseUnits } from "viem"
+import { readContracts, watchBlockNumber } from "@wagmi/core"
+import toast, { Toaster } from "react-hot-toast"
+import { truncateString } from "@/utils"
+import {
+  useAccount,
+  useBalance,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi"
+import { useClientMediaQuery } from "@/hooks/useClientMediaQuery"
+import { wagmiConfig } from "./providers"
 
 export default function Home() {
   const { address } = useAccount()
   const isMobile = useClientMediaQuery("(max-width: 600px)")
+  const { data: hash, isPending, writeContract } = useWriteContract()
 
   const [players, setPlayers] = useState<string[]>()
   const [pools, setPools] = useState<PoolStateType[]>()
@@ -36,11 +43,9 @@ export default function Home() {
     useState<Record<string, Erc20InfoType>>()
 
   // Form Related State
-  const [isLoading, setIsLoading] = useState(false)
   const [selectedToken, setSelectedToken] = useState(supportedTokenAddresses[0])
   const [isEnoughAllowance, setIsEnoughAllowance] = useState(false)
 
-  const { data: nativeToken } = useBalance({ address })
   const { data: tokenA } = useBalance({ address, token: tokenAAddress })
   const { data: tokenB } = useBalance({ address, token: tokenBAddress })
   const { data: tokenC } = useBalance({ address, token: tokenCAddress })
@@ -79,9 +84,7 @@ export default function Home() {
     if (!selectedToken || !erc20InfoMap) return
 
     try {
-      setIsLoading(true)
-
-      await writeContract(wagmiConfig, {
+      writeContract({
         abi: erc20ABI,
         address: selectedToken as `0x${string}`,
         functionName: "approve",
@@ -90,11 +93,8 @@ export default function Home() {
           parseUnits(amount, erc20InfoMap[selectedToken].decimals),
         ],
       })
-
-      setIsLoading(false)
     } catch (error) {
       console.error("Error approving tokens:", error)
-      setIsLoading(false)
     }
   }
 
@@ -102,21 +102,21 @@ export default function Home() {
     if (!selectedToken) return
 
     try {
-      setIsLoading(true)
-
-      const submitResult = await writeContract(wagmiConfig, {
+      writeContract({
         abi: giftExchangeContractABI,
         address: giftExchangeContractAddress as `0x${string}`,
         functionName: "play",
         args: [selectedToken as `0x${string}`],
       })
-
-      setIsLoading(false)
     } catch (error) {
       console.error("Error submit:", error)
-      setIsLoading(false)
     }
   }
+
+  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+    useWaitForTransactionReceipt({
+      hash,
+    })
 
   // ----- fetch pool information -----
   useEffect(() => {
@@ -220,6 +220,7 @@ export default function Home() {
 
   const isEnoughBalance = Number(balance) >= Number(amount)
   const isSendDisable = !isEnoughAllowance || !isEnoughBalance
+  const notify = () => toast("Wow so easy!")
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-6 md:p-18">
@@ -227,7 +228,9 @@ export default function Home() {
       <div className="py-4">
         <ConnectButton />
       </div>
-
+      {isPending ? "Pending" : "Done"}
+      {isConfirming ? "Confirming" : "Done"}
+      {isConfirmed ? "isConfirmed" : "Done"}
       {/* Form */}
       <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
         <form className="space-y-5">
@@ -276,7 +279,13 @@ export default function Home() {
               onClick={handleApprove}
               className="btn btn-info flex-1"
             >
-              {selectedToken ? `Approve ${amount} ${symbol}` : `Approve`}
+              {isPending ? (
+                <span className="loading loading-dots loading-lg"></span>
+              ) : selectedToken ? (
+                `Approve ${amount} ${symbol}`
+              ) : (
+                `Approve`
+              )}
             </button>
             <button
               type="button"
@@ -289,7 +298,6 @@ export default function Home() {
           </div>
         </form>
       </div>
-
       {/* rize Pools & Waiting List */}
       <div className="mx-auto max-w-4xl space-y-4 pt-4">
         <div>
@@ -321,6 +329,8 @@ export default function Home() {
           </div> */}
         </div>
       </div>
+      <button onClick={notify}>Show Info Toast</button>
+      <Notifications />
     </main>
   )
 }

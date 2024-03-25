@@ -1,4 +1,4 @@
-import giftExchangeJSON from './contracts/gift-exchange-abi.json';
+export const amount = "1"
 
 export const defaultPoolState = {
   playerAddress: undefined,

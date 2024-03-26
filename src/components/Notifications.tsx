@@ -1,4 +1,4 @@
-import { useToaster } from "react-hot-toast"
+import { useToaster } from 'react-hot-toast';
 
 export const Notifications = () => {
   const { toasts, handlers } = useToaster()
@@ -12,9 +12,13 @@ export const Notifications = () => {
     >
       {toasts
         .filter((toast) => toast.visible)
-        .map((toast) => (
-          <div className="alert alert-info" key={toast.id} {...toast.ariaProps}>
-            {toast.message?.toString()}
+        .map(({ id, message, ariaProps, type }) => (
+          <div
+            className={`alert alert-${type === "loading" ? "info" : "success"}`}
+            key={id}
+            {...ariaProps}
+          >
+            {message?.toString()}
           </div>
         ))}
     </div>

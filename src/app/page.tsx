@@ -1,100 +1,52 @@
-"use client"
+'use client'
 
-import { useEffect, useState } from "react"
+import { useEffect, useState } from 'react'
 
-import { ConnectButton } from "@rainbow-me/rainbowkit"
+import { ConnectButton } from '@rainbow-me/rainbowkit'
+import GiftCard from '@/components/GiftCard'
+import { Notifications } from '@/components/Notifications'
 import {
-  Erc20InfoType,
-  PoolStateType,
   amount,
   erc20ABI,
   giftExchangeContractABI,
   giftExchangeContractAddress,
   selectTokenOptions,
   supportedTokenAddresses,
-  tokenAAddress,
-  tokenBAddress,
-  tokenCAddress,
-  tokenDAddress,
-} from "../constants"
-import GiftCard from "@/components/GiftCard"
-import { Notifications } from "@/components/Notifications"
-import { formatUnits, parseUnits } from "viem"
-import { readContracts, watchBlockNumber } from "@wagmi/core"
-import toast, { Toaster } from "react-hot-toast"
-import { truncateString } from "@/utils"
-import {
-  useAccount,
-  useBalance,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from "wagmi"
-import { useClientMediaQuery } from "@/hooks/useClientMediaQuery"
-import { wagmiConfig } from "./providers"
+} from '../constants'
+import { parseUnits } from 'viem'
+import toast from 'react-hot-toast'
+import { truncateString } from '@/utils'
+import { useClientMediaQuery } from '@/hooks/useClientMediaQuery'
+import useErc20Info from '@/hooks/useErc20Info'
+import usePoolInfo from '@/hooks/usePoolInfo'
+import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
+import { wagmiConfig } from './providers'
 
 export default function Home() {
-  const { address } = useAccount()
-  const isMobile = useClientMediaQuery("(max-width: 600px)")
-  const { data: hash, isPending, writeContract } = useWriteContract()
+  const isMobile = useClientMediaQuery('(max-width: 600px)')
+  const { data: hash, isPending, variables, writeContract } = useWriteContract()
+  const { functionName } = variables || {}
 
-  const [players, setPlayers] = useState<string[]>()
-  const [pools, setPools] = useState<PoolStateType[]>()
-  const [erc20InfoMap, setErc20InfoMap] =
-    useState<Record<string, Erc20InfoType>>()
-
-  // Form Related State
   const [selectedToken, setSelectedToken] = useState(supportedTokenAddresses[0])
   const [isEnoughAllowance, setIsEnoughAllowance] = useState(false)
 
-  const { data: tokenA } = useBalance({ address, token: tokenAAddress })
-  const { data: tokenB } = useBalance({ address, token: tokenBAddress })
-  const { data: tokenC } = useBalance({ address, token: tokenCAddress })
-  const { data: tokenD } = useBalance({ address, token: tokenDAddress })
+  const { erc20Infos } = useErc20Info(supportedTokenAddresses)
+  const { amount: balance, symbol, allowance, decimals } = erc20Infos?.[selectedToken] || {}
 
-  const accountBalances: Record<string, Record<string, string>> = {
-    ...(tokenA && {
-      [tokenAAddress]: {
-        symbol: tokenA.symbol,
-        amount: formatUnits(tokenA.value, tokenA.decimals),
-      },
-    }),
-    ...(tokenB && {
-      [tokenBAddress]: {
-        symbol: tokenB.symbol,
-        amount: formatUnits(tokenB.value, tokenB.decimals),
-      },
-    }),
-    ...(tokenC && {
-      [tokenCAddress]: {
-        symbol: tokenC.symbol,
-        amount: formatUnits(tokenC.value, tokenC.decimals),
-      },
-    }),
-    ...(tokenD && {
-      [tokenDAddress]: {
-        symbol: tokenD.symbol,
-        amount: formatUnits(tokenD.value, tokenD.decimals),
-      },
-    }),
-  }
-  const { amount: balance } = accountBalances?.[selectedToken] || {}
-  const { symbol, allowance } = erc20InfoMap?.[selectedToken] || {}
+  const { players, pools } = usePoolInfo()
 
   const handleApprove = async () => {
-    if (!selectedToken || !erc20InfoMap) return
+    if (!selectedToken || !erc20Infos || !decimals) return
 
     try {
       writeContract({
         abi: erc20ABI,
         address: selectedToken as `0x${string}`,
-        functionName: "approve",
-        args: [
-          giftExchangeContractAddress,
-          parseUnits(amount, erc20InfoMap[selectedToken].decimals),
-        ],
+        functionName: 'approve',
+        args: [giftExchangeContractAddress, parseUnits(amount, decimals)],
       })
     } catch (error) {
-      console.error("Error approving tokens:", error)
+      console.error('Error approving tokens:', error)
     }
   }
 
@@ -105,122 +57,46 @@ export default function Home() {
       writeContract({
         abi: giftExchangeContractABI,
         address: giftExchangeContractAddress as `0x${string}`,
-        functionName: "play",
+        functionName: 'play',
         args: [selectedToken as `0x${string}`],
       })
     } catch (error) {
-      console.error("Error submit:", error)
+      console.error('Error submit:', error)
     }
   }
 
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({
-      hash,
-    })
-
-  // ----- fetch pool information -----
-  useEffect(() => {
-    return watchBlockNumber(wagmiConfig, {
-      onBlockNumber() {
-        const fetchContract = async () => {
-          const contractResp = await readContracts(wagmiConfig, {
-            contracts: [0, 1, 2].flatMap((poolId) =>
-              ["players", "prizeTokenInfos"].map((functionName) => ({
-                address: giftExchangeContractAddress,
-                abi: giftExchangeContractABI,
-                functionName,
-                args: [poolId],
-              }))
-            ),
-          })
-
-          let _players: string[] = []
-          let _pools: PoolStateType[] = []
-          for (let i = 0; i < 6; i += 2) {
-            const playerAddress = contractResp[i].result?.toString() || ""
-
-            const [tokenAddress, decimals, symbol, amount] =
-              (contractResp[i + 1]?.result as unknown as any[])?.map((item) =>
-                item.toString()
-              ) || []
-
-            _players.push(playerAddress)
-            _pools.push({
-              tokenAddress,
-              decimals: Number(decimals),
-              symbol,
-              amount,
-            })
-          }
-
-          setPlayers(_players)
-          setPools(_pools)
-        }
-
-        fetchContract()
-      },
-    })
-  }, [])
-
-  // ----- fetch erc20 Info (allowance) -----
-  useEffect(() => {
-    return watchBlockNumber(wagmiConfig, {
-      onBlockNumber() {
-        const fetchErc20Info = async () => {
-          const contractResp = await readContracts(wagmiConfig, {
-            contracts: supportedTokenAddresses.flatMap((tokenAddress) => [
-              {
-                address: tokenAddress as `0x{string}`,
-                abi: erc20ABI,
-                functionName: "decimals",
-              },
-              {
-                address: tokenAddress as `0x{string}`,
-                abi: erc20ABI,
-                functionName: "symbol",
-              },
-              {
-                address: tokenAddress as `0x{string}`,
-                abi: erc20ABI,
-                functionName: "allowance",
-                args: [address as `0x{string}`, giftExchangeContractAddress],
-              },
-            ]),
-          })
-
-          const _erc20InfoMap: Record<string, Erc20InfoType> = {}
-          for (const [i, tokenAdress] of supportedTokenAddresses.entries()) {
-            const decimals = Number(contractResp[i * 3].result)
-
-            _erc20InfoMap[tokenAdress] = {
-              decimals,
-              symbol: contractResp[i * 3 + 1].result?.toString() || "",
-              allowance: Number(
-                formatUnits(contractResp[i * 3 + 2].result as bigint, decimals)
-              ),
-            }
-          }
-
-          setErc20InfoMap(_erc20InfoMap)
-        }
-
-        fetchErc20Info()
-      },
-    })
-  })
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash })
 
   // Check is approve enable
   useEffect(() => {
-    if (!selectedToken || !erc20InfoMap) return
+    if (!selectedToken || !erc20Infos) return
 
-    setIsEnoughAllowance(
-      erc20InfoMap[selectedToken].allowance >= Number(amount)
-    )
-  }, [selectedToken, allowance])
+    setIsEnoughAllowance(allowance! >= Number(amount))
+  }, [selectedToken, allowance, erc20Infos])
+
+  // Toast
+  useEffect(() => {
+    if (!functionName || !hash) return
+
+    if (functionName === 'approve') {
+      if (isConfirming) {
+        toast.loading(`Approving TX: ${hash} ...`)
+      } else {
+        toast.dismiss()
+        toast(`Approved TX: ${hash}`, { icon: '👏' })
+      }
+    } else if (functionName === 'play') {
+      if (isConfirming) {
+        toast.loading(`Confirming TX: ${hash} ...`)
+      } else {
+        toast.dismiss()
+        toast(`Confirmed TX: ${hash}`, { icon: '👏' })
+      }
+    }
+  }, [functionName, hash, isConfirming])
 
   const isEnoughBalance = Number(balance) >= Number(amount)
   const isSendDisable = !isEnoughAllowance || !isEnoughBalance
-  const notify = () => toast("Wow so easy!")
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-between p-6 md:p-18">
@@ -228,18 +104,14 @@ export default function Home() {
       <div className="py-4">
         <ConnectButton />
       </div>
-      {isPending ? "Pending" : "Done"}
-      {isConfirming ? "Confirming" : "Done"}
-      {isConfirmed ? "isConfirmed" : "Done"}
+
       {/* Form */}
-      <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+      <div className="bg-slate-800 rounded-lg shadow-lg p-6 w-full max-w-md">
         <form className="space-y-5">
           <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              Token
-            </label>
+            <label className="block text-sm font-medium">Token</label>
             <select
-              className="select select-info w-full"
+              className="select bg-info-content w-full"
               value={selectedToken}
               onChange={(e: any) => setSelectedToken(e.target.value)}
             >
@@ -252,13 +124,10 @@ export default function Home() {
           </div>
 
           <div className="space-y-1">
-            <label
-              htmlFor="number"
-              className="block text-sm font-medium text-gray-700 relative"
-            >
+            <label htmlFor="number" className="block text-sm font-medium relative">
               Amount {`${balance} ${symbol}`}
-              {erc20InfoMap && (
-                <span className="absolute right-0 text-right text-sm font-medium text-gray-700">
+              {erc20Infos && (
+                <span className="absolute right-0 text-right text-sm font-medium ">
                   {`(allowance: ${allowance})`}
                 </span>
               )}
@@ -275,13 +144,13 @@ export default function Home() {
           <div className="flex justify-between gap-3">
             <button
               type="button"
-              disabled={isEnoughAllowance}
+              disabled={!selectedToken || isEnoughAllowance}
               onClick={handleApprove}
               className="btn btn-info flex-1"
             >
               {isPending ? (
                 <span className="loading loading-dots loading-lg"></span>
-              ) : selectedToken ? (
+              ) : symbol ? (
                 `Approve ${amount} ${symbol}`
               ) : (
                 `Approve`
@@ -289,16 +158,17 @@ export default function Home() {
             </button>
             <button
               type="button"
-              disabled={isSendDisable}
+              disabled={!selectedToken || isSendDisable}
               onClick={handleSubmit}
-              className="btn btn-success flex-1"
+              className="btn btn-outline btn-info flex-1"
             >
-              Send
+              {isPending ? <span className="loading loading-dots loading-lg"></span> : 'Send'}
             </button>
           </div>
         </form>
       </div>
-      {/* rize Pools & Waiting List */}
+
+      {/* Prize Pools & Waiting List */}
       <div className="mx-auto max-w-4xl space-y-4 pt-4">
         <div>
           <div className="text-4xl mb-4">Prize Pools</div>
@@ -314,22 +184,14 @@ export default function Home() {
           <div className="text-4xl w-full">Waiting List</div>
           <div className="p-4 bg-zinc-800 rounded-lg w-8/12">
             {players?.map((player, i) => (
-              <div
-                key={i}
-                className="w-11/12 text-ellipsis overflow-hidden whitespace-nowrap"
-              >
+              <div key={i} className="w-11/12 text-ellipsis overflow-hidden whitespace-nowrap">
                 {isMobile ? truncateString(player) : player}
               </div>
             ))}
           </div>
-          {/* <div className="p-4 bg-zinc-800 rounded-lg flex-1">
-            {Object.values(accountBalances).map(({ symbol, amount }) => (
-              <div key={symbol}>{`${symbol}: ${amount}`}</div>
-            ))}
-          </div> */}
         </div>
       </div>
-      <button onClick={notify}>Show Info Toast</button>
+
       <Notifications />
     </main>
   )
